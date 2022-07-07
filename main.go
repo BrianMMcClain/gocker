@@ -1,11 +1,15 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
+	"strconv"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -21,16 +25,13 @@ func main() {
 		} else {
 			run(os.Args[2:])
 		}
+	case "child":
+		child(os.Args[2:])
 	}
 }
 
 func run(args []string) {
-	var cmd *exec.Cmd
-	if len(args) == 1 {
-		cmd = exec.Command(args[0])
-	} else {
-		cmd = exec.Command(args[0], strings.Join(args[1:], " "))
-	}
+	cmd := exec.Command("/proc/self/exe", append([]string{"child"}, args[0:]...)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
@@ -40,7 +41,19 @@ func run(args []string) {
 		Unshareflags: syscall.CLONE_NEWNS,
 	}
 
-	err := syscall.Sethostname([]byte("container"))
+	cmd.Run()
+}
+
+func child(args []string) {
+	containerID := generateContainerID()
+	setCGroup(containerID)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+
+	err := syscall.Sethostname([]byte(containerID))
 	if err != nil {
 		log.Fatal("Could not set hostname")
 	}
@@ -50,7 +63,7 @@ func run(args []string) {
 		log.Fatal("Could not chroot to image filesystem")
 	}
 
-	err = syscall.Chdir("/")
+	err = os.Chdir("/")
 	if err != nil {
 		log.Fatal("Could not chdir to the root filesystem")
 	}
@@ -60,12 +73,28 @@ func run(args []string) {
 		log.Fatal("Could not mount the proc filesystem")
 	}
 
-	err = cmd.Run()
-	if err != nil {
-		log.Fatal("Error starting container process:", err)
-	}
+	cmd.Run()
 
 	syscall.Unmount("proc", 0)
+}
+
+func setCGroup(id string) {
+	cgroups := "/sys/fs/cgroup/"
+	pids := filepath.Join(cgroups, "pids")
+	os.Mkdir(pids, 0755) // Make the pids dir if it doesn't exist
+	os.Mkdir(filepath.Join(pids, id), 0755)
+	ioutil.WriteFile(filepath.Join(pids, id, "notify_on_release"), []byte("1"), 0700)
+	ioutil.WriteFile(filepath.Join(pids, id, "cgroup.procs"), []byte(strconv.Itoa(os.Getpid())), 0700)
+}
+
+func generateContainerID() string {
+	rand.Seed(time.Now().UnixNano())
+	vals := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	id := make([]byte, 32)
+	for i := range id {
+		id[i] = vals[rand.Intn(len(vals))]
+	}
+	return string(id)
 }
 
 func help() {
