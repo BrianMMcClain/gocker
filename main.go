@@ -48,11 +48,6 @@ func child(args []string) {
 	containerID := generateContainerID()
 	setCGroup(containerID)
 
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-
 	err := syscall.Sethostname([]byte(containerID))
 	if err != nil {
 		log.Fatal("Could not set hostname")
@@ -73,6 +68,10 @@ func child(args []string) {
 		log.Fatal("Could not mount the proc filesystem")
 	}
 
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
 	cmd.Run()
 
 	syscall.Unmount("proc", 0)
