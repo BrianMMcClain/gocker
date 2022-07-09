@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -53,7 +54,7 @@ func child(image string, args []string) {
 	if _, err := os.Stat(gockerDir); err != nil {
 		os.Mkdir(gockerDir, 0755)
 	}
-	fsDir := DownloadImage(image, gockerDir)
+	fsDir, manifestConfig := DownloadImage(image, gockerDir)
 
 	containerID := generateContainerID()
 	setCGroup(containerID)
@@ -80,17 +81,17 @@ func child(image string, args []string) {
 
 	// If the image manifest defines a working directory,
 	// chdir to it
-	// if len(conf.Config.WorkingDir) > 0 {
-	// 	err = os.Chdir(conf.Config.WorkingDir)
-	// 	if err != nil {
-	// 		log.Fatal("Could not chdir to workingDir")
-	// 	}
-	// }
+	if len(manifestConfig.WorkingDir) > 0 {
+		err = os.Chdir(manifestConfig.WorkingDir)
+		if err != nil {
+			log.Fatal("Could not chdir to workingDir")
+		}
+	}
 
-	// for _, c := range conf.Config.Env {
-	// 	sEnv := strings.SplitN(c, "=", 2)
-	// 	os.Setenv(sEnv[0], sEnv[1])
-	// }
+	for _, c := range manifestConfig.Env {
+		sEnv := strings.SplitN(c, "=", 2)
+		os.Setenv(sEnv[0], sEnv[1])
+	}
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdout = os.Stdout

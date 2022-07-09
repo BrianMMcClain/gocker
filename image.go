@@ -37,6 +37,7 @@ type Manifest struct {
 	SchemaVersion int       `json:"schemaVersion"`
 	Layers        []Layer   `json:"fsLayers"`
 	History       []History `json:"history"`
+	Config        ManifestConfig
 }
 
 type History struct {
@@ -45,6 +46,18 @@ type History struct {
 
 type Layer struct {
 	Digest string `json:"blobSum"`
+}
+
+type V1Compatibility struct {
+	Architecture string         `json:"architecture"`
+	Config       ManifestConfig `json:"config"`
+}
+
+type ManifestConfig struct {
+	Hostname   string   `json:"Hostname"`
+	Env        []string `json:"Env"`
+	Cmd        string   `json:"Cmd"`
+	WorkingDir string   `json:"WorkingDir"`
 }
 
 func parseImageName(imageS string) Image {
@@ -125,7 +138,7 @@ func getManifest(image Image, token Token) Manifest {
 	var manifest Manifest
 	err := json.Unmarshal(manifestS, &manifest)
 	if err != nil {
-		log.Fatal("Error parsing manifest")
+		log.Fatal("Error parsing manifest: ", err)
 	}
 	return manifest
 }
@@ -175,7 +188,7 @@ func processLayer(image Image, layer string, outDir string, token Token) {
 	}
 }
 
-func DownloadImage(imageS string, outDir string) string {
+func DownloadImage(imageS string, outDir string) (string, ManifestConfig) {
 	image := parseImageName(imageS)
 	token := getToken(image)
 
@@ -211,7 +224,9 @@ func DownloadImage(imageS string, outDir string) string {
 		processLayer(image, layer.Digest, fullPath, token)
 	}
 
-	return fsPath
+	var v1Compatibility V1Compatibility
+	json.Unmarshal([]byte(manifest.History[0].V1Compatibility), &v1Compatibility)
+	return fsPath, v1Compatibility.Config
 }
 
 func untar(path string, outDir string) {
