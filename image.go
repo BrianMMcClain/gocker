@@ -56,7 +56,8 @@ type V1Compatibility struct {
 type ManifestConfig struct {
 	Hostname   string   `json:"Hostname"`
 	Env        []string `json:"Env"`
-	Cmd        string   `json:"Cmd"`
+	Cmd        []string `json:"Cmd"`
+	Entrypoint []string `json:"Entrypoint"`
 	WorkingDir string   `json:"WorkingDir"`
 }
 

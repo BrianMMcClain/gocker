@@ -93,7 +93,24 @@ func child(image string, args []string) {
 		os.Setenv(sEnv[0], sEnv[1])
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
+	var cmdOrEntrypoint []string
+	if len(args) > 0 {
+		cmdOrEntrypoint = args
+	} else if len(manifestConfig.Cmd) > 0 {
+		cmdOrEntrypoint = manifestConfig.Cmd
+	} else if len(manifestConfig.Entrypoint) > 0 {
+		cmdOrEntrypoint = manifestConfig.Entrypoint
+	} else {
+		log.Fatal("No command provided")
+	}
+
+	var cmd *exec.Cmd
+	if len(cmdOrEntrypoint) >= 2 {
+		cmd = exec.Command(cmdOrEntrypoint[0], cmdOrEntrypoint[1:]...)
+	} else {
+		cmd = exec.Command(cmdOrEntrypoint[0])
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
