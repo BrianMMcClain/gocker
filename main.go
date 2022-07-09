@@ -114,6 +114,8 @@ func child(image string, args []string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
+
+	log.Println("Starting container", containerID)
 	cmd.Run()
 
 	syscall.Unmount("proc", 0)
